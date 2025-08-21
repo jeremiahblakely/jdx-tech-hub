@@ -14,7 +14,8 @@ import {
   Zap,
   Edit,
   Save,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 export default function ProjectOverview() {
@@ -22,47 +23,94 @@ export default function ProjectOverview() {
   const projectId = params.id;
   const [isEditing, setIsEditing] = useState(false);
   const [projectData, setProjectData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Load project data from localStorage
-  useEffect(() => {
-    const storedData = localStorage.getItem(`project_${projectId}`);
-    if (storedData) {
-      setProjectData(JSON.parse(storedData));
-    } else {
-      // Default data structure
-      setProjectData({
-        id: projectId,
-        name: projectId === 'jdtv' ? 'JDTV iOS Streaming App' : 
-              projectId === 'blakely' ? 'Blakely Cinematics Website' : 
-              'JDX Tech Hub',
-        description: 'Project description...',
-        status: 'active',
-        startDate: '2024-01-01',
-        team: ['John Doe'],
-        techStack: ['Next.js', 'React', 'Node.js'],
-        repository: '',
-        deployment: '',
-        features: [],
-        endpoints: [],
-        notes: ''
-      });
+  // Load project data from DynamoDB
+  const loadProject = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/projects?id=${projectId}`);
+      const data = await response.json();
+      
+      if (data) {
+        setProjectData(data);
+      } else {
+        // Create default project if it doesn't exist
+        const defaultData = {
+          id: projectId,
+          name: projectId === 'jdtv' ? 'JDTV iOS Streaming App' : 
+                projectId === 'blakely' ? 'Blakely Cinematics Website' : 
+                'JDX Tech Hub',
+          description: 'Project description...',
+          status: 'active',
+          startDate: '2024-01-01',
+          team: ['John Doe'],
+          techStack: ['Next.js', 'React', 'Node.js'],
+          repository: '',
+          deployment: '',
+          features: [],
+          endpoints: [],
+          notes: ''
+        };
+        
+        // Save to DynamoDB
+        await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(defaultData)
+        });
+        
+        setProjectData(defaultData);
+      }
+    } catch (error) {
+      console.error('Error loading project:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadProject();
   }, [projectId]);
 
-  const handleSave = () => {
-    localStorage.setItem(`project_${projectId}`, JSON.stringify(projectData));
-    setIsEditing(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData)
+      });
+      
+      if (response.ok) {
+        setIsEditing(false);
+      } else {
+        throw new Error('Failed to save');
+      }
+    } catch (error) {
+      console.error('Error saving project:', error);
+      alert('Failed to save project');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
-    const storedData = localStorage.getItem(`project_${projectId}`);
-    if (storedData) {
-      setProjectData(JSON.parse(storedData));
-    }
+    loadProject(); // Reload from database
     setIsEditing(false);
   };
 
-  if (!projectData) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-3 text-white">Loading from AWS DynamoDB...</span>
+      </div>
+    );
+  }
+
+  if (!projectData) return <div>Project not found</div>;
 
   return (
     <div className="space-y-6">
@@ -82,14 +130,16 @@ export default function ProjectOverview() {
             <>
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg transition-colors"
               >
-                <Save className="w-4 h-4" />
-                Save Changes
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -97,6 +147,12 @@ export default function ProjectOverview() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Cloud Storage Indicator */}
+      <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3 flex items-center gap-2">
+        <Database className="w-5 h-5 text-green-400" />
+        <span className="text-sm text-green-300">Data stored securely in AWS DynamoDB</span>
       </div>
 
       {/* Main Info Card */}
@@ -184,14 +240,14 @@ export default function ProjectOverview() {
         {isEditing ? (
           <input
             type="text"
-            value={projectData.techStack.join(', ')}
+            value={projectData.techStack?.join(', ') || ''}
             onChange={(e) => setProjectData({...projectData, techStack: e.target.value.split(',').map(t => t.trim())})}
             placeholder="Enter technologies separated by commas"
             className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
           />
         ) : (
           <div className="flex flex-wrap gap-2">
-            {projectData.techStack.map((tech, idx) => (
+            {projectData.techStack?.map((tech, idx) => (
               <span key={idx} className="px-3 py-1 bg-gray-900/50 border border-gray-700 rounded-lg text-sm text-gray-300">
                 {tech}
               </span>
@@ -210,7 +266,7 @@ export default function ProjectOverview() {
           {isEditing ? (
             <input
               type="text"
-              value={projectData.repository}
+              value={projectData.repository || ''}
               onChange={(e) => setProjectData({...projectData, repository: e.target.value})}
               placeholder="https://github.com/username/repo"
               className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
@@ -231,7 +287,7 @@ export default function ProjectOverview() {
           {isEditing ? (
             <input
               type="text"
-              value={projectData.deployment}
+              value={projectData.deployment || ''}
               onChange={(e) => setProjectData({...projectData, deployment: e.target.value})}
               placeholder="https://example.com"
               className="w-full px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
@@ -250,7 +306,7 @@ export default function ProjectOverview() {
         <h3 className="text-lg font-semibold text-white mb-4">Additional Notes</h3>
         {isEditing ? (
           <textarea
-            value={projectData.notes}
+            value={projectData.notes || ''}
             onChange={(e) => setProjectData({...projectData, notes: e.target.value})}
             rows={4}
             placeholder="Add any additional notes about the project..."
