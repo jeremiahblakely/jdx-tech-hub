@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, signOut } from 'aws-amplify/auth';
 import Link from 'next/link';
-import ThemeSwitcher from '@/components/ThemeSwitcher';
+import ThemeSwitcher from '../../components/ThemeSwitcher';
 import { 
   Code, 
   Monitor, 

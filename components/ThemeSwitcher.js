@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { themes, applyTheme, getCurrentTheme } from '@/themes';
+import { themes, applyTheme, getCurrentTheme } from '../themes';
 import { Palette, ChevronDown } from 'lucide-react';
 
 export default function ThemeSwitcher({ compact = false }) {

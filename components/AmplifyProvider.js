@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import amplifyConfig from '../lib/amplify-config';
-import { initializeTheme } from '@/themes';
+import { initializeTheme } from '../themes';
 
 export default function AmplifyProvider({ children }) {
   useEffect(() => {
