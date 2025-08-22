@@ -7,7 +7,6 @@ const handler = NextAuth({
   providers: [
     CognitoProvider({
       clientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID,
-      clientSecret: process.env.COGNITO_CLIENT_SECRET,
       issuer: `https://cognito-idp.${process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1'}.amazonaws.com/${process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID}`,
     }),
   ],
