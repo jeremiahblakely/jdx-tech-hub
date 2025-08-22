@@ -58,9 +58,21 @@ The authorized user account must be created manually in AWS Cognito Console:
 npm run dev
 ```
 
-- Landing page automatically redirects to `/login`
+### Hidden Login Access (Security Through Obscurity)
+
+- **Landing page**: Appears as normal portfolio site
+- **Secret access**: Press `Cmd+Shift+\` to reveal admin login
+- **Return home**: Press `ESC` on login page to return to landing
+- **No visible navigation** between landing and login pages
 - Protected routes redirect unauthenticated users to login
 - Successful authentication redirects to `/dashboard`
+
+### Keyboard Shortcuts
+
+| Key Combination | Action |
+|----------------|--------|
+| `Cmd+Shift+\` | Access hidden admin login (from landing page) |
+| `ESC` | Return to landing page (from login page) |
 
 ## Security Notes
 
