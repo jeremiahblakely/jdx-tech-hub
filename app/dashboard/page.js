@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser, signOut } from 'aws-amplify/auth';
 import Link from 'next/link';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { 
   Code, 
   Monitor, 
@@ -128,13 +129,13 @@ export default function Dashboard() {
             {/* Logo Section */}
             <div className="flex items-center space-x-4">
               <div 
-                className="w-11 h-11 rounded-xl flex items-center justify-center"
+                className="w-11 h-11 rounded-xl flex items-center justify-center forge-flame"
                 style={{ 
-                  background: 'linear-gradient(135deg, var(--gold-accent) 0%, var(--copper-accent) 100%)',
-                  boxShadow: '0 4px 12px rgba(212, 175, 55, 0.2)'
+                  background: 'linear-gradient(135deg, var(--theme-accent-primary) 0%, var(--theme-accent-secondary) 100%)',
+                  boxShadow: 'var(--theme-effects-shadow)'
                 }}
               >
-                <Code className="w-6 h-6 text-black" />
+                <Code className="w-6 h-6" style={{ color: 'var(--theme-background-primary)' }} />
               </div>
               <div>
                 <h1 className="premium-heading text-2xl tracking-wide">JDX Tech Hub</h1>
@@ -150,18 +151,20 @@ export default function Dashboard() {
               {/* System Status */}
               <div className="premium-card px-4 py-2 flex items-center space-x-2">
                 <div 
-                  className="w-1.5 h-1.5 rounded-full premium-glow"
-                  style={{ backgroundColor: 'var(--gold-accent)' }}
+                  className="w-1.5 h-1.5 rounded-full status-indicator theme-glow"
                 ></div>
                 <span className="premium-body text-xs tracking-[0.05em] uppercase opacity-80">
                   Operational
                 </span>
               </div>
               
+              {/* Theme Switcher */}
+              <ThemeSwitcher compact={true} />
+              
               {/* Sign Out Button */}
               <button 
                 onClick={handleSignOut}
-                className="premium-button flex items-center space-x-2 px-6 py-3"
+                className="premium-button secondary flex items-center space-x-2 px-6 py-3"
               >
                 <span className="text-xs tracking-[0.1em] uppercase">Sign Out</span>
               </button>
