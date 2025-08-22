@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn } from '@aws-amplify/auth';
+import { signIn, confirmSignIn } from '@aws-amplify/auth';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
+  const [signInResponse, setSignInResponse] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -37,13 +41,17 @@ export default function LoginPage() {
     }
 
     try {
-      const { isSignedIn, nextStep } = await signIn({
+      const response = await signIn({
         username: email,
         password
       });
 
-      if (isSignedIn) {
+      if (response.isSignedIn) {
         router.push('/dashboard');
+      } else if (response.nextStep?.signInStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+        setNeedsPasswordChange(true);
+        setSignInResponse(response);
+        setError(''); // Clear any previous errors
       } else {
         setError('Authentication failed. Please check your credentials.');
       }
@@ -52,9 +60,53 @@ export default function LoginPage() {
       if (err.name === 'UserNotConfirmedException') {
         setError('Account needs to be confirmed by administrator.');
       } else if (err.name === 'NotAuthorizedException') {
-        setError('Invalid credentials.');
+        setError('Invalid credentials. Check your temporary password.');
+      } else if (err.name === 'InvalidParameterException') {
+        setError('Invalid credentials format.');
       } else {
         setError('Failed to sign in. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    // Validate new password
+    if (newPassword !== confirmPassword) {
+      setError('New passwords do not match.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters long.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await confirmSignIn({
+        challengeResponse: newPassword
+      });
+
+      if (response.isSignedIn) {
+        router.push('/dashboard');
+      } else {
+        setError('Failed to set new password. Please try again.');
+      }
+    } catch (err) {
+      console.error('Password change error:', err);
+      if (err.name === 'InvalidParameterException') {
+        setError('Password does not meet requirements. Must be at least 8 characters.');
+      } else if (err.name === 'InvalidPasswordException') {
+        setError('Password does not meet complexity requirements.');
+      } else {
+        setError('Failed to set new password. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -115,85 +167,188 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            
-            {/* Email Field */}
-            <div>
-              <label 
-                htmlFor="email" 
-                className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
-              >
-                Authorization Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="premium-input w-full text-sm"
-                placeholder="Enter authorization credentials"
-                style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
-              />
-            </div>
+        {/* Conditional Forms */}
+        {!needsPasswordChange ? (
+          /* Initial Login Form */
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              
+              {/* Email Field */}
+              <div>
+                <label 
+                  htmlFor="email" 
+                  className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+                >
+                  Authorization Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="premium-input w-full text-sm"
+                  placeholder="Enter authorization credentials"
+                  style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
+                />
+              </div>
 
-            {/* Password Field */}
-            <div>
-              <label 
-                htmlFor="password" 
-                className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
-              >
-                Security Key
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="premium-input w-full text-sm"
-                placeholder="Enter security passphrase"
-                style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
-              />
-            </div>
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <div className="premium-card p-4" style={{ borderColor: 'rgba(220, 38, 38, 0.2)' }}>
-              <div 
-                className="text-xs premium-body leading-relaxed"
-                style={{ color: 'rgba(248, 113, 113, 0.9)' }}
-              >
-                {error}
+              {/* Password Field */}
+              <div>
+                <label 
+                  htmlFor="password" 
+                  className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+                >
+                  Security Key
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="premium-input w-full text-sm"
+                  placeholder="Enter temporary password"
+                  style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
+                />
               </div>
             </div>
-          )}
 
-          {/* Submit Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="premium-button w-full py-4 text-sm tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60"></div>
-                  <span>Authenticating</span>
+            {/* Error Display */}
+            {error && (
+              <div className="premium-card p-4" style={{ borderColor: 'rgba(220, 38, 38, 0.2)' }}>
+                <div 
+                  className="text-xs premium-body leading-relaxed"
+                  style={{ color: 'rgba(248, 113, 113, 0.9)' }}
+                >
+                  {error}
                 </div>
-              ) : (
-                'Access System'
-              )}
-            </button>
-          </div>
-        </form>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="premium-button w-full py-4 text-sm tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60"></div>
+                    <span>Authenticating</span>
+                  </div>
+                ) : (
+                  'Access System'
+                )}
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* Password Change Form */
+          <form onSubmit={handlePasswordChange} className="space-y-6">
+            <div className="mb-6 text-center">
+              <div 
+                className="w-2 h-2 rounded-full premium-glow mx-auto mb-4"
+                style={{ backgroundColor: 'var(--copper-accent)' }}
+              ></div>
+              <h3 className="premium-subtitle text-sm tracking-[0.15em] uppercase mb-2">
+                Password Update Required
+              </h3>
+              <p className="premium-body text-xs opacity-60 leading-relaxed">
+                Please set a permanent password to complete authentication
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              
+              {/* New Password Field */}
+              <div>
+                <label 
+                  htmlFor="newPassword" 
+                  className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+                >
+                  New Security Key
+                </label>
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="premium-input w-full text-sm"
+                  placeholder="Create permanent password"
+                  style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
+                />
+              </div>
+
+              {/* Confirm Password Field */}
+              <div>
+                <label 
+                  htmlFor="confirmPassword" 
+                  className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+                >
+                  Confirm Security Key
+                </label>
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="premium-input w-full text-sm"
+                  placeholder="Confirm permanent password"
+                  style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
+                />
+              </div>
+            </div>
+
+            {/* Password Requirements */}
+            <div className="premium-card p-3" style={{ backgroundColor: 'rgba(26, 26, 26, 0.3)' }}>
+              <p className="premium-body text-xs opacity-60 leading-relaxed">
+                Password requirements: Minimum 8 characters with uppercase, lowercase, number, and special character
+              </p>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="premium-card p-4" style={{ borderColor: 'rgba(220, 38, 38, 0.2)' }}>
+                <div 
+                  className="text-xs premium-body leading-relaxed"
+                  style={{ color: 'rgba(248, 113, 113, 0.9)' }}
+                >
+                  {error}
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="premium-button w-full py-4 text-sm tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60"></div>
+                    <span>Updating Password</span>
+                  </div>
+                ) : (
+                  'Set Permanent Password'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Footer */}
         <div className="mt-12 text-center">
