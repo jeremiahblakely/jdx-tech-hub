@@ -19,20 +19,27 @@ import {
   Users,
   Zap,
   X,
-  Save
+  Save,
+  Smartphone,
+  Server,
+  Layout
 } from 'lucide-react';
+
+import { blueprintTemplates } from '../../lib/constants/blueprint-templates.js';
 
 export default function Dashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1); // 1: template, 2: details
+  const [selectedTemplate, setSelectedTemplate] = useState('saas');
   const [newProject, setNewProject] = useState({
     id: '',
     name: '',
     description: '',
     techStack: '',
-    template: 'web-app'
+    template: 'saas'
   });
   const [projects] = useState([
     {
@@ -110,30 +117,39 @@ export default function Dashboard() {
     }
 
     try {
+      const template = blueprintTemplates[selectedTemplate];
+      const techStack = newProject.techStack ? 
+        newProject.techStack.split(',').map(t => t.trim()).filter(Boolean) : 
+        template.techStack;
+
       const projectData = {
         id: newProject.id.toLowerCase().replace(/\s+/g, '-'),
         name: newProject.name,
         description: newProject.description,
         status: 'development',
-        techStack: newProject.techStack.split(',').map(t => t.trim()).filter(Boolean),
+        techStack,
         blueprint: {
-          template: newProject.template,
-          phases: [],
+          templateId: selectedTemplate,
+          template: template.name,
+          phases: template.phases,
           currentFocus: null,
           progress: 0,
           decisions: [{
             id: '1',
             date: new Date().toISOString().split('T')[0],
-            decision: 'Initialize project blueprint',
+            decision: `Initialize ${template.name} blueprint`,
             reason: 'Need structured development approach with progress tracking',
-            impact: 'Will guide development phases and track completion',
+            impact: `Will guide ${template.name.toLowerCase()} development phases and track completion`,
             relatedTask: 'Project Setup'
           }],
-          credentials: {
+          credentials: template.commonCredentials.reduce((acc, cred) => {
+            acc[cred.toLowerCase().replace(/_/g, '')] = '';
+            return acc;
+          }, {
             awsRegion: 'us-east-1',
             githubRepo: `jdxtech/${newProject.id}`,
             vercelUrl: `${newProject.id}.vercel.app`
-          },
+          }),
           timeSpent: {},
           taskStates: {},
           sessions: [],
@@ -151,7 +167,9 @@ export default function Dashboard() {
 
       if (response.ok) {
         setShowCreateProject(false);
-        setNewProject({ id: '', name: '', description: '', techStack: '', template: 'web-app' });
+        setCurrentStep(1);
+        setSelectedTemplate('saas');
+        setNewProject({ id: '', name: '', description: '', techStack: '', template: 'saas' });
         // Navigate to the new project's blueprint
         router.push(`/projects/${projectData.id}/blueprint`);
       } else {
@@ -161,6 +179,20 @@ export default function Dashboard() {
       console.error('Error creating project:', error);
       alert('Error creating project');
     }
+  };
+
+  const selectTemplate = (templateKey) => {
+    setSelectedTemplate(templateKey);
+    setNewProject(prev => ({
+      ...prev,
+      template: templateKey,
+      techStack: blueprintTemplates[templateKey].techStack.join(', ')
+    }));
+    setCurrentStep(2);
+  };
+
+  const goBackToTemplates = () => {
+    setCurrentStep(1);
   };
 
   if (isLoading) {
@@ -519,123 +551,216 @@ export default function Dashboard() {
       {/* Create Project Modal */}
       {showCreateProject && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="premium-card p-8 max-w-md w-full mx-4">
+          <div className="premium-card p-8 max-w-2xl w-full mx-4">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="premium-heading text-xl">Create New Project</h2>
+              <h2 className="premium-heading text-xl">
+                {currentStep === 1 ? 'Choose Blueprint Template' : 'Project Details'}
+              </h2>
               <button 
-                onClick={() => setShowCreateProject(false)}
+                onClick={() => {
+                  setShowCreateProject(false);
+                  setCurrentStep(1);
+                  setSelectedTemplate('saas');
+                }}
                 className="premium-button secondary px-2 py-2"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            {currentStep === 1 ? (
+              // Template Selection Step
               <div>
-                <label className="premium-body text-sm block mb-2">Project ID (URL-safe)</label>
-                <input
-                  type="text"
-                  value={newProject.id}
-                  onChange={(e) => setNewProject({...newProject, id: e.target.value})}
-                  placeholder="my-awesome-project"
-                  className="w-full p-3 rounded"
-                  style={{ 
-                    backgroundColor: 'var(--theme-background-elevated)',
-                    borderColor: 'var(--theme-border-secondary)',
-                    color: 'var(--theme-text-primary)',
-                    border: '1px solid var(--theme-border-secondary)'
-                  }}
-                />
+                <p className="premium-body text-sm opacity-70 mb-6">
+                  Choose a blueprint template to get started with pre-configured phases and tasks
+                </p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(blueprintTemplates).map(([key, template]) => {
+                    const getIcon = (type) => {
+                      switch(type) {
+                        case 'saas': return Code;
+                        case 'website': return Layout;
+                        case 'mobile': return Smartphone;
+                        case 'api': return Server;
+                        default: return Code;
+                      }
+                    };
+                    
+                    const Icon = getIcon(key);
+                    
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => selectTemplate(key)}
+                        className="premium-card p-6 text-left hover:-translate-y-1 transition-all duration-200 group"
+                        style={{ 
+                          border: selectedTemplate === key ? '2px solid var(--theme-accent-primary)' : undefined 
+                        }}
+                      >
+                        <div className="flex items-center space-x-3 mb-4">
+                          <div 
+                            className="w-12 h-12 rounded-xl flex items-center justify-center"
+                            style={{ 
+                              backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                              border: '1px solid rgba(212, 175, 55, 0.2)' 
+                            }}
+                          >
+                            <Icon className="w-6 h-6" style={{ color: 'var(--gold-accent)' }} />
+                          </div>
+                          <div>
+                            <h3 className="premium-heading text-lg mb-1">{template.name}</h3>
+                            <div className="flex items-center space-x-2 text-xs opacity-60">
+                              <span>{template.estimatedHours}h estimated</span>
+                              <span>•</span>
+                              <span>{template.phases.length} phases</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <p className="premium-body text-sm mb-4 opacity-80 leading-relaxed">
+                          {template.description}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-1">
+                          {template.techStack.slice(0, 3).map((tech, idx) => (
+                            <span 
+                              key={idx} 
+                              className="px-2 py-1 text-xs rounded border"
+                              style={{ 
+                                color: 'var(--mercury)',
+                                borderColor: 'var(--glass-border)',
+                                backgroundColor: 'rgba(26, 26, 26, 0.5)'
+                              }}
+                            >
+                              {tech}
+                            </span>
+                          ))}
+                          {template.techStack.length > 3 && (
+                            <span className="px-2 py-1 text-xs opacity-60">
+                              +{template.techStack.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-
+            ) : (
+              // Project Details Step
               <div>
-                <label className="premium-body text-sm block mb-2">Project Name</label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
-                  placeholder="My Awesome Project"
-                  className="w-full p-3 rounded"
-                  style={{ 
-                    backgroundColor: 'var(--theme-background-elevated)',
-                    borderColor: 'var(--theme-border-secondary)',
-                    color: 'var(--theme-text-primary)',
-                    border: '1px solid var(--theme-border-secondary)'
-                  }}
-                />
-              </div>
+                <div className="flex items-center space-x-4 mb-6 p-4 rounded-lg" 
+                     style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
+                  <div 
+                    className="w-10 h-10 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(212, 175, 55, 0.1)' }}
+                  >
+                    <Code className="w-5 h-5" style={{ color: 'var(--gold-accent)' }} />
+                  </div>
+                  <div>
+                    <h3 className="premium-heading text-sm">Selected Template</h3>
+                    <p className="premium-body text-xs opacity-70">
+                      {blueprintTemplates[selectedTemplate].name} - {blueprintTemplates[selectedTemplate].estimatedHours}h
+                    </p>
+                  </div>
+                  <button 
+                    onClick={goBackToTemplates}
+                    className="premium-button secondary px-3 py-1 text-xs ml-auto"
+                  >
+                    Change
+                  </button>
+                </div>
 
-              <div>
-                <label className="premium-body text-sm block mb-2">Description</label>
-                <textarea
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                  placeholder="Brief description of the project"
-                  rows="3"
-                  className="w-full p-3 rounded"
-                  style={{ 
-                    backgroundColor: 'var(--theme-background-elevated)',
-                    borderColor: 'var(--theme-border-secondary)',
-                    color: 'var(--theme-text-primary)',
-                    border: '1px solid var(--theme-border-secondary)'
-                  }}
-                />
-              </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="premium-body text-sm block mb-2">Project ID (URL-safe)</label>
+                    <input
+                      type="text"
+                      value={newProject.id}
+                      onChange={(e) => setNewProject({...newProject, id: e.target.value})}
+                      placeholder="my-awesome-project"
+                      className="w-full p-3 rounded"
+                      style={{ 
+                        backgroundColor: 'var(--theme-background-elevated)',
+                        borderColor: 'var(--theme-border-secondary)',
+                        color: 'var(--theme-text-primary)',
+                        border: '1px solid var(--theme-border-secondary)'
+                      }}
+                    />
+                  </div>
 
-              <div>
-                <label className="premium-body text-sm block mb-2">Tech Stack (comma-separated)</label>
-                <input
-                  type="text"
-                  value={newProject.techStack}
-                  onChange={(e) => setNewProject({...newProject, techStack: e.target.value})}
-                  placeholder="React, Node.js, MongoDB"
-                  className="w-full p-3 rounded"
-                  style={{ 
-                    backgroundColor: 'var(--theme-background-elevated)',
-                    borderColor: 'var(--theme-border-secondary)',
-                    color: 'var(--theme-text-primary)',
-                    border: '1px solid var(--theme-border-secondary)'
-                  }}
-                />
-              </div>
+                  <div>
+                    <label className="premium-body text-sm block mb-2">Project Name</label>
+                    <input
+                      type="text"
+                      value={newProject.name}
+                      onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                      placeholder="My Awesome Project"
+                      className="w-full p-3 rounded"
+                      style={{ 
+                        backgroundColor: 'var(--theme-background-elevated)',
+                        borderColor: 'var(--theme-border-secondary)',
+                        color: 'var(--theme-text-primary)',
+                        border: '1px solid var(--theme-border-secondary)'
+                      }}
+                    />
+                  </div>
 
-              <div>
-                <label className="premium-body text-sm block mb-2">Blueprint Template</label>
-                <select
-                  value={newProject.template}
-                  onChange={(e) => setNewProject({...newProject, template: e.target.value})}
-                  className="w-full p-3 rounded"
-                  style={{ 
-                    backgroundColor: 'var(--theme-background-elevated)',
-                    borderColor: 'var(--theme-border-secondary)',
-                    color: 'var(--theme-text-primary)',
-                    border: '1px solid var(--theme-border-secondary)'
-                  }}
-                >
-                  <option value="web-app">Web Application</option>
-                  <option value="mobile-app">Mobile App</option>
-                  <option value="api">API Service</option>
-                  <option value="desktop-app">Desktop Application</option>
-                  <option value="library">Library/Package</option>
-                </select>
-              </div>
-            </div>
+                  <div>
+                    <label className="premium-body text-sm block mb-2">Description</label>
+                    <textarea
+                      value={newProject.description}
+                      onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                      placeholder="Brief description of the project"
+                      rows="3"
+                      className="w-full p-3 rounded"
+                      style={{ 
+                        backgroundColor: 'var(--theme-background-elevated)',
+                        borderColor: 'var(--theme-border-secondary)',
+                        color: 'var(--theme-text-primary)',
+                        border: '1px solid var(--theme-border-secondary)'
+                      }}
+                    />
+                  </div>
 
-            <div className="flex items-center space-x-3 mt-6">
-              <button 
-                onClick={createProject}
-                className="premium-button primary px-6 py-3 flex items-center space-x-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>Create Project</span>
-              </button>
-              <button 
-                onClick={() => setShowCreateProject(false)}
-                className="premium-button secondary px-6 py-3"
-              >
-                Cancel
-              </button>
-            </div>
+                  <div>
+                    <label className="premium-body text-sm block mb-2">
+                      Tech Stack (auto-filled, customize as needed)
+                    </label>
+                    <input
+                      type="text"
+                      value={newProject.techStack}
+                      onChange={(e) => setNewProject({...newProject, techStack: e.target.value})}
+                      placeholder="React, Node.js, MongoDB"
+                      className="w-full p-3 rounded"
+                      style={{ 
+                        backgroundColor: 'var(--theme-background-elevated)',
+                        borderColor: 'var(--theme-border-secondary)',
+                        color: 'var(--theme-text-primary)',
+                        border: '1px solid var(--theme-border-secondary)'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 mt-6">
+                  <button 
+                    onClick={createProject}
+                    className="premium-button primary px-6 py-3 flex items-center space-x-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Create Project with Blueprint</span>
+                  </button>
+                  <button 
+                    onClick={goBackToTemplates}
+                    className="premium-button secondary px-6 py-3"
+                  >
+                    Back to Templates
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

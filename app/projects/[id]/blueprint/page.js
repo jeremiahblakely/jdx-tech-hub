@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { jdxTechHubBlueprint } from '../../../../lib/constants/jdx-tech-hub-blueprint.js';
+import { blueprintTemplates } from '../../../../lib/constants/blueprint-templates.js';
 import { 
   Target,
   Clock,
@@ -92,8 +93,8 @@ export default function ProjectBlueprint() {
     }
   };
 
-  // Save blueprint to database
-  const saveBlueprintToDatabase = async () => {
+  // Manual save function (called by save button)
+  const manualSave = async () => {
     try {
       const blueprintData = {
         phases: blueprint?.phases || [],
@@ -192,7 +193,46 @@ export default function ProjectBlueprint() {
     }
   };
 
-  // Auto-save when state changes
+  // Auto-save to database with debouncing
+  const saveBlueprintToDatabase = async () => {
+    if (isLoading || !blueprint) return;
+    
+    try {
+      const blueprintData = {
+        phases: blueprint?.phases || [],
+        currentFocus: focusTask?.id || null,
+        progress: getStats().completionRate,
+        decisions: decisionLog,
+        credentials,
+        timeSpent,
+        taskStates,
+        sessions: sessions.slice(-10), // Keep last 10 sessions
+        lastUpdated: new Date().toISOString()
+      };
+
+      const response = await fetch(`/api/projects`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: projectId,
+          blueprint: blueprintData
+        })
+      });
+
+      if (response.ok) {
+        // Optional: show success indicator
+        console.log('Blueprint auto-saved');
+      } else {
+        console.error('Failed to save blueprint');
+      }
+    } catch (err) {
+      console.error('Failed to save blueprint:', err);
+    }
+  };
+
+  // Auto-save when state changes (debounced)
   useEffect(() => {
     if (!isLoading && blueprint) {
       const timer = setTimeout(saveBlueprintToDatabase, 2000);
@@ -526,6 +566,63 @@ Please provide guidance on the best approach.`
     return templates[type] || templates.continue;
   };
 
+  // Export/Import functionality
+  const exportBlueprint = () => {
+    const data = {
+      projectId,
+      projectName: blueprint?.name,
+      templateId: blueprint?.templateId,
+      phases: blueprint?.phases || [],
+      taskStates,
+      decisionLog,
+      credentials,
+      sessions: sessions.slice(-10), // Last 10 sessions
+      timeSpent,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectId}-blueprint-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    showToast('Blueprint exported successfully', 'success');
+  };
+
+  const importBlueprint = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        // Validate imported data
+        if (!data.phases || !Array.isArray(data.phases)) {
+          showToast('Invalid blueprint file format', 'error');
+          return;
+        }
+        
+        setBlueprint(prev => ({
+          ...prev,
+          phases: data.phases
+        }));
+        setTaskStates(data.taskStates || {});
+        setDecisionLog(data.decisionLog || []);
+        setCredentials(prev => ({ ...prev, ...data.credentials }));
+        setSessions(data.sessions || []);
+        setTimeSpent(data.timeSpent || {});
+        
+        showToast('Blueprint imported successfully!', 'success');
+        calculateCurrentFocus();
+      } catch (err) {
+        showToast('Failed to import blueprint', 'error');
+        console.error('Import error:', err);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Calculate statistics
   const getStats = () => {
     if (!blueprint) return { totalTasks: 0, completedTasks: 0, completionRate: 0, totalTime: 0, sessionsToday: 0, averageTaskTime: 0 };
@@ -545,6 +642,94 @@ Please provide guidance on the best approach.`
       sessionsToday,
       averageTaskTime: completedTasks > 0 ? Math.round(totalTime / completedTasks) : 0
     };
+  };
+
+  // Analytics calculations
+  const getAnalytics = () => {
+    const stats = getStats();
+    const totalPhases = blueprint?.phases?.length || 0;
+    const completedPhases = blueprint?.phases?.filter(phase => {
+      const phaseTasks = phase.tasks.filter(task => isTaskComplete(task.id));
+      return phaseTasks.length === phase.tasks.length && phase.tasks.length > 0;
+    }).length || 0;
+
+    const tasksPerDay = sessions.length > 0 ? 
+      stats.completedTasks / Math.max(sessions.length, 1) : 0;
+
+    const estimatedTotalHours = blueprint?.phases?.reduce((sum, phase) => 
+      sum + (phase.estimatedHours || 0), 0) || 0;
+
+    const remainingTasks = stats.totalTasks - stats.completedTasks;
+    const estimatedCompletion = tasksPerDay > 0 ? 
+      Math.ceil(remainingTasks / tasksPerDay) : null;
+
+    return {
+      completedPhases,
+      totalPhases,
+      phaseCompletionRate: totalPhases > 0 ? Math.round((completedPhases / totalPhases) * 100) : 0,
+      tasksPerDay: Math.round(tasksPerDay * 10) / 10,
+      estimatedTotalHours,
+      actualHours: Math.round(stats.totalTime / 3600 * 10) / 10,
+      timeEfficiency: estimatedTotalHours > 0 ? 
+        Math.round((estimatedTotalHours * 3600 / Math.max(stats.totalTime, 1)) * 100) : 100,
+      estimatedDaysToComplete: estimatedCompletion,
+      mostTimeSpentTask: Object.entries(timeSpent).reduce((max, [taskId, time]) => 
+        time > max.time ? { taskId, time } : max, { taskId: null, time: 0 })
+    };
+  };
+
+  // Quick Actions
+  const markPhaseComplete = (phaseId) => {
+    const phase = blueprint?.phases?.find(p => p.id === phaseId);
+    if (!phase) return;
+
+    const newTaskStates = { ...taskStates };
+    phase.tasks.forEach(task => {
+      newTaskStates[task.id] = {
+        ...newTaskStates[task.id],
+        completed: true,
+        checklist: task.checklist?.reduce((acc, _, idx) => {
+          acc[idx] = true;
+          return acc;
+        }, {}) || {}
+      };
+    });
+
+    setTaskStates(newTaskStates);
+    showToast(`Phase "${phase.name}" marked as complete!`, 'success');
+    calculateCurrentFocus();
+  };
+
+  const resetBlueprint = () => {
+    if (window.confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+      setTaskStates({});
+      setTimeSpent({});
+      setSessions([]);
+      setDecisionLog([{
+        id: '1',
+        date: new Date().toISOString().split('T')[0],
+        decision: 'Reset project blueprint',
+        reason: 'Starting fresh with clean slate',
+        impact: 'All previous progress and decisions cleared',
+        relatedTask: 'Project Reset'
+      }]);
+      showToast('Blueprint reset successfully', 'success');
+      calculateCurrentFocus();
+    }
+  };
+
+  const cloneFromTemplate = (templateKey) => {
+    const template = blueprintTemplates[templateKey];
+    if (!template) return;
+
+    setBlueprint(prev => ({
+      ...prev,
+      phases: template.phases,
+      name: `${prev?.name} (${template.name} Template)`
+    }));
+    
+    showToast(`Cloned from ${template.name} template`, 'success');
+    calculateCurrentFocus();
   };
 
   if (isLoading) {
@@ -594,7 +779,7 @@ Please provide guidance on the best approach.`
               </div>
             </div>
             <button 
-              onClick={saveBlueprintToDatabase}
+              onClick={manualSave}
               className="premium-button primary px-4 py-2 text-sm flex items-center space-x-2"
             >
               <Save className="w-4 h-4" />
@@ -628,6 +813,24 @@ Please provide guidance on the best approach.`
             </div>
             
             <div className="flex items-center space-x-3">
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => e.target.files[0] && importBlueprint(e.target.files[0])}
+                className="hidden"
+                id="import-blueprint"
+              />
+              <label htmlFor="import-blueprint" className="premium-button secondary px-4 py-2 text-sm flex items-center space-x-2 cursor-pointer">
+                <Upload className="w-4 h-4" />
+                <span>Import</span>
+              </label>
+              <button 
+                onClick={exportBlueprint}
+                className="premium-button secondary px-4 py-2 text-sm flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </button>
               <button 
                 onClick={() => copyToClipboard(generateAITemplate('continue'), 'session-context')}
                 className={`premium-button ${copiedStates['session-context'] ? 'primary' : 'secondary'} px-4 py-2 text-sm flex items-center space-x-2`}
@@ -638,6 +841,145 @@ Please provide guidance on the best approach.`
             </div>
           </div>
         </div>
+
+        {/* Analytics Dashboard */}
+        {blueprint && (
+          <div className="premium-card p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <BarChart3 className="w-6 h-6 text-green-400" />
+                <h2 className="premium-heading text-xl">Analytics & Quick Actions</h2>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={resetBlueprint}
+                  className="premium-button secondary px-3 py-1 text-sm hover:bg-red-600"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {(() => {
+              const analytics = getAnalytics();
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  
+                  {/* Phase Progress */}
+                  <div className="premium-card p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="premium-body text-sm opacity-70">Phase Progress</span>
+                      <span className="premium-heading text-lg">{analytics.phaseCompletionRate}%</span>
+                    </div>
+                    <div className="text-xs opacity-60">
+                      {analytics.completedPhases}/{analytics.totalPhases} phases done
+                    </div>
+                    <div className="w-full h-2 rounded-full mt-2" style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
+                      <div 
+                        className="h-2 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${analytics.phaseCompletionRate}%`,
+                          backgroundColor: '#22c55e'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Velocity */}
+                  <div className="premium-card p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="premium-body text-sm opacity-70">Daily Velocity</span>
+                      <span className="premium-heading text-lg">{analytics.tasksPerDay}</span>
+                    </div>
+                    <div className="text-xs opacity-60">tasks per session</div>
+                    {analytics.estimatedDaysToComplete && (
+                      <div className="text-xs mt-1 text-green-400">
+                        ~{analytics.estimatedDaysToComplete} sessions to finish
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Time Efficiency */}
+                  <div className="premium-card p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="premium-body text-sm opacity-70">Time vs Estimate</span>
+                      <span className="premium-heading text-lg">{analytics.timeEfficiency}%</span>
+                    </div>
+                    <div className="text-xs opacity-60">
+                      {analytics.actualHours}h / {analytics.estimatedTotalHours}h
+                    </div>
+                    <div className={`text-xs mt-1 ${analytics.timeEfficiency > 100 ? 'text-green-400' : 'text-orange-400'}`}>
+                      {analytics.timeEfficiency > 100 ? 'Ahead of schedule' : 'On track'}
+                    </div>
+                  </div>
+
+                  {/* Top Time Consumer */}
+                  <div className="premium-card p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="premium-body text-sm opacity-70">Most Time Spent</span>
+                      <span className="premium-heading text-sm">
+                        {formatTime(analytics.mostTimeSpentTask.time)}
+                      </span>
+                    </div>
+                    <div className="text-xs opacity-60">
+                      {analytics.mostTimeSpentTask.taskId ? 
+                        getTaskById(analytics.mostTimeSpentTask.taskId)?.title?.substring(0, 20) + '...' || 'Unknown Task' :
+                        'No tasks yet'
+                      }
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Quick Actions */}
+            <div className="mt-6 border-t pt-4" style={{ borderColor: 'var(--theme-border-secondary)' }}>
+              <h3 className="premium-heading text-sm mb-3">Quick Actions</h3>
+              <div className="flex items-center space-x-3 flex-wrap gap-2">
+                {blueprint.phases.map(phase => {
+                  const completed = phase.tasks.filter(t => isTaskComplete(t.id)).length;
+                  const total = phase.tasks.length;
+                  const isComplete = completed === total && total > 0;
+                  
+                  return (
+                    <button
+                      key={phase.id}
+                      onClick={() => !isComplete && markPhaseComplete(phase.id)}
+                      disabled={isComplete}
+                      className={`premium-button text-xs px-3 py-1 ${
+                        isComplete ? 'secondary opacity-50 cursor-not-allowed' : 'secondary hover:bg-green-600'
+                      }`}
+                    >
+                      {isComplete ? '✅' : '📋'} Complete {phase.name}
+                    </button>
+                  );
+                })}
+                
+                <div className="h-6 w-px bg-gray-600 mx-2" />
+                
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      cloneFromTemplate(e.target.value);
+                      e.target.value = '';
+                    }
+                  }}
+                  className="premium-button text-xs px-3 py-1 bg-transparent border border-gray-600"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    color: 'var(--theme-text-primary)'
+                  }}
+                >
+                  <option value="">Clone from Template...</option>
+                  {Object.entries(blueprintTemplates).map(([key, template]) => (
+                    <option key={key} value={key}>{template.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* FOCUS MODE */}
         {focusTask && (
