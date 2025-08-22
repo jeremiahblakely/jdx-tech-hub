@@ -1,4 +1,6 @@
 import './globals.css'
+import AuthProvider from '../components/AuthProvider'
+import AmplifyProvider from '../components/AmplifyProvider'
 
 export const metadata = {
   title: 'JDX Tech Hub',
@@ -8,7 +10,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AmplifyProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </AmplifyProvider>
+      </body>
     </html>
   )
 }

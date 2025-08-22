@@ -2,22 +2,33 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
-    const handleKeyDown = (event) => {
-      // Cmd+Shift+\ (backslash) - secret shortcut to dashboard
-      if (event.metaKey && event.shiftKey && event.code === 'Backslash') {
-        event.preventDefault();
-        router.push('/dashboard');
-      }
-    };
+    // If authenticated, redirect to dashboard
+    if (status === 'authenticated') {
+      router.push('/dashboard');
+    } else if (status === 'unauthenticated') {
+      // If not authenticated, redirect to login after a brief display
+      const timer = setTimeout(() => {
+        router.push('/login');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [status, router]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [router]);
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden">
@@ -40,6 +51,16 @@ export default function LandingPage() {
         <p className="text-white/50 text-lg font-light tracking-widest">
           TECH HUB
         </p>
+        
+        {/* Redirect notice */}
+        <div className="mt-8 text-center">
+          <p className="text-white/60 text-sm">
+            Redirecting to admin login...
+          </p>
+          <div className="mt-4 flex justify-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/60"></div>
+          </div>
+        </div>
 
         {/* Subtle glow effect */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
