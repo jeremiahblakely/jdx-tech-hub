@@ -62,30 +62,70 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
-            JDX Tech Hub
+    <div 
+      className="min-h-screen flex items-center justify-center px-6 relative"
+      style={{ background: 'var(--gradient-subtle)' }}
+    >
+      {/* Subtle ambient lighting */}
+      <div className="absolute inset-0">
+        <div 
+          className="absolute top-1/3 left-1/2 w-[400px] h-[400px] rounded-full premium-glow opacity-10 -translate-x-1/2 -translate-y-1/2"
+          style={{ background: 'radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%)' }}
+        ></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm">
+        
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 
+            className="premium-heading text-6xl tracking-[-0.02em] mb-6"
+            style={{ 
+              background: 'linear-gradient(135deg, var(--platinum) 0%, var(--silver) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}
+          >
+            JDX
           </h1>
-          <h2 className="mt-6 text-3xl font-bold text-white">
-            Admin Access
+          
+          {/* Subtle divider */}
+          <div 
+            className="h-px mx-auto mb-6 opacity-20"
+            style={{ 
+              width: '120px',
+              background: 'linear-gradient(90deg, transparent 0%, var(--silver) 50%, transparent 100%)'
+            }}
+          ></div>
+          
+          <h2 className="premium-subtitle text-sm tracking-[0.2em] uppercase mb-2">
+            System Access
           </h2>
-          <p className="mt-2 text-sm text-gray-300">
-            Private development portal
-          </p>
-          <div className="mt-4 px-4 py-2 bg-amber-900/30 border border-amber-500/50 rounded-lg">
-            <p className="text-xs text-amber-200">
-              🔒 Authorized personnel only
-            </p>
+          
+          {/* Status indicator */}
+          <div className="flex items-center justify-center space-x-2 mb-6">
+            <div 
+              className="w-1.5 h-1.5 rounded-full premium-glow"
+              style={{ backgroundColor: 'var(--gold-accent)' }}
+            ></div>
+            <span className="premium-body text-xs tracking-[0.1em] uppercase opacity-60">
+              Secure Connection
+            </span>
           </div>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm space-y-4">
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            
+            {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-1">
-                Email address
+              <label 
+                htmlFor="email" 
+                className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+              >
+                Authorization Email
               </label>
               <input
                 id="email"
@@ -95,13 +135,19 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-700/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm backdrop-blur-sm"
-                placeholder="Enter your email"
+                className="premium-input w-full text-sm"
+                placeholder="Enter authorization credentials"
+                style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
               />
             </div>
+
+            {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-1">
-                Password
+              <label 
+                htmlFor="password" 
+                className="premium-subtitle block text-xs tracking-[0.1em] uppercase mb-3 opacity-80"
+              >
+                Security Key
               </label>
               <input
                 id="password"
@@ -111,44 +157,64 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-700/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm backdrop-blur-sm"
-                placeholder="Enter your password"
+                className="premium-input w-full text-sm"
+                placeholder="Enter security passphrase"
+                style={{ backgroundColor: 'rgba(20, 20, 20, 0.4)' }}
               />
             </div>
           </div>
 
+          {/* Error Display */}
           {error && (
-            <div className="rounded-md bg-red-900/50 border border-red-500 p-4">
-              <div className="text-sm text-red-200">
+            <div className="premium-card p-4" style={{ borderColor: 'rgba(220, 38, 38, 0.2)' }}>
+              <div 
+                className="text-xs premium-body leading-relaxed"
+                style={{ color: 'rgba(248, 113, 113, 0.9)' }}
+              >
                 {error}
               </div>
             </div>
           )}
 
-          <div>
+          {/* Submit Button */}
+          <div className="pt-2">
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="premium-button w-full py-4 text-sm tracking-[0.1em] uppercase disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Signing in...
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60"></div>
+                  <span>Authenticating</span>
                 </div>
               ) : (
-                'Sign in'
+                'Access System'
               )}
             </button>
           </div>
-
-          <div className="text-center">
-            <p className="text-xs text-gray-500/70">
-              Press ESC to return
-            </p>
-          </div>
         </form>
+
+        {/* Footer */}
+        <div className="mt-12 text-center">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className="w-px h-3 opacity-20" style={{ backgroundColor: 'var(--mercury)' }}></div>
+            <span className="premium-body text-xs tracking-[0.15em] uppercase opacity-40">
+              ESC
+            </span>
+            <div className="w-px h-3 opacity-20" style={{ backgroundColor: 'var(--mercury)' }}></div>
+          </div>
+          <p className="premium-body text-xs opacity-50 tracking-wide">
+            Return to system overview
+          </p>
+        </div>
       </div>
+
+      {/* Minimal corner accents */}
+      <div className="absolute top-6 left-6 w-4 h-px opacity-15" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute top-6 left-6 w-px h-4 opacity-15" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute bottom-6 right-6 w-4 h-px opacity-15" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute bottom-6 right-6 w-px h-4 opacity-15" style={{ backgroundColor: 'var(--silver)' }}></div>
     </div>
   );
 }

@@ -39,45 +39,111 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+    <div 
+      className="min-h-screen relative overflow-hidden"
+      style={{ background: 'var(--gradient-subtle)' }}
+    >
+      {/* Premium ambient lighting */}
+      <div className="absolute inset-0">
+        <div 
+          className="absolute top-1/4 left-1/3 w-[600px] h-[600px] rounded-full premium-pulse opacity-20"
+          style={{ background: 'radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%)' }}
+        ></div>
+        <div 
+          className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full premium-glow opacity-15"
+          style={{ background: 'radial-gradient(circle, rgba(142, 142, 147, 0.08) 0%, transparent 70%)' }}
+        ></div>
       </div>
 
-      {/* Main content */}
-      <div className="text-center z-10">
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-8xl md:text-9xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent tracking-tight animate-pulse">
-            JDX
-          </h1>
-        </div>
+      {/* Main content container */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-8">
+        <div className="text-center max-w-4xl">
+          
+          {/* Premium logo treatment */}
+          <div className="mb-12">
+            <h1 
+              className="premium-heading text-9xl md:text-[12rem] lg:text-[14rem] tracking-[-0.05em] mb-4"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--platinum) 0%, var(--silver) 50%, var(--platinum) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5))'
+              }}
+            >
+              JDX
+            </h1>
+            
+            {/* Subtle underline */}
+            <div 
+              className="h-px mx-auto opacity-30"
+              style={{ 
+                width: '280px',
+                background: 'linear-gradient(90deg, transparent 0%, var(--gold-accent) 50%, transparent 100%)'
+              }}
+            ></div>
+          </div>
 
-        {/* Subtle tagline */}
-        <p className="text-white/50 text-lg font-light tracking-widest">
-          TECH HUB
-        </p>
-        
-        {/* Portfolio description */}
-        <div className="mt-8 text-center max-w-md">
-          <p className="text-white/40 text-sm leading-relaxed">
-            Development & Creative Technologies
-          </p>
-        </div>
+          {/* Sophisticated tagline */}
+          <div className="mb-16 space-y-4">
+            <h2 className="premium-subtitle text-xl md:text-2xl tracking-[0.15em] uppercase">
+              Technology Solutions
+            </h2>
+            <p className="premium-body text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+              Advanced development platforms and creative technology infrastructure 
+              designed for enterprise-grade performance and precision.
+            </p>
+          </div>
 
-        {/* Subtle glow effect */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-32 h-32 bg-gradient-to-r from-purple-400/10 to-blue-400/10 rounded-full blur-2xl animate-ping"></div>
+          {/* Luxury feature highlights */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            <div className="premium-card p-6 group cursor-default">
+              <div className="w-8 h-8 mb-4 mx-auto opacity-60 group-hover:opacity-80 transition-opacity">
+                <div className="w-full h-full border border-current rounded-sm"></div>
+              </div>
+              <h3 className="premium-subtitle text-sm tracking-[0.1em] uppercase mb-2">Platform</h3>
+              <p className="premium-body text-xs leading-relaxed">Enterprise-grade infrastructure</p>
+            </div>
+            
+            <div className="premium-card p-6 group cursor-default">
+              <div className="w-8 h-8 mb-4 mx-auto opacity-60 group-hover:opacity-80 transition-opacity">
+                <div className="w-full h-full border border-current rounded-full"></div>
+              </div>
+              <h3 className="premium-subtitle text-sm tracking-[0.1em] uppercase mb-2">Performance</h3>
+              <p className="premium-body text-xs leading-relaxed">Optimized for speed and reliability</p>
+            </div>
+            
+            <div className="premium-card p-6 group cursor-default">
+              <div className="w-8 h-8 mb-4 mx-auto opacity-60 group-hover:opacity-80 transition-opacity">
+                <div className="w-3 h-3 border border-current transform rotate-45 mx-auto mt-2"></div>
+              </div>
+              <h3 className="premium-subtitle text-sm tracking-[0.1em] uppercase mb-2">Precision</h3>
+              <p className="premium-body text-xs leading-relaxed">Meticulously crafted solutions</p>
+            </div>
+          </div>
+
+          {/* Subtle status indicator */}
+          <div className="flex items-center justify-center space-x-3">
+            <div 
+              className="w-2 h-2 rounded-full premium-glow"
+              style={{ backgroundColor: 'var(--gold-accent)' }}
+            ></div>
+            <span className="premium-body text-xs tracking-[0.1em] uppercase opacity-60">
+              System Operational
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Minimal geometric shapes for visual interest */}
-      <div className="absolute top-20 left-20 w-2 h-2 bg-white/20 rounded-full animate-pulse"></div>
-      <div className="absolute bottom-32 left-32 w-1 h-8 bg-white/10 transform rotate-45"></div>
-      <div className="absolute top-40 right-40 w-3 h-3 border border-white/10 transform rotate-12"></div>
-      <div className="absolute bottom-20 right-20 w-1 h-1 bg-purple-300/30 rounded-full"></div>
+      {/* Minimal geometric accents */}
+      <div className="absolute top-8 left-8 w-px h-16 opacity-20" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute top-8 left-8 w-16 h-px opacity-20" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute bottom-8 right-8 w-px h-16 opacity-20" style={{ backgroundColor: 'var(--silver)' }}></div>
+      <div className="absolute bottom-8 right-8 w-16 h-px opacity-20" style={{ backgroundColor: 'var(--silver)' }}></div>
+      
+      {/* Subtle corner accents */}
+      <div className="absolute top-4 right-4 w-1 h-1 opacity-40 rounded-full" style={{ backgroundColor: 'var(--mercury)' }}></div>
+      <div className="absolute bottom-4 left-4 w-1 h-1 opacity-40 rounded-full" style={{ backgroundColor: 'var(--mercury)' }}></div>
     </div>
   );
 }
