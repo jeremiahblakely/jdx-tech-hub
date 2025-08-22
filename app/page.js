@@ -12,14 +12,22 @@ export default function LandingPage() {
     // If authenticated, redirect to dashboard
     if (status === 'authenticated') {
       router.push('/dashboard');
-    } else if (status === 'unauthenticated') {
-      // If not authenticated, redirect to login after a brief display
-      const timer = setTimeout(() => {
-        router.push('/login');
-      }, 3000);
-      return () => clearTimeout(timer);
     }
   }, [status, router]);
+
+  useEffect(() => {
+    // Secret keyboard shortcut to access admin login
+    const handleKeyDown = (event) => {
+      // Cmd+Shift+\ (backslash) - secret shortcut to login
+      if (event.metaKey && event.shiftKey && event.code === 'Backslash') {
+        event.preventDefault();
+        router.push('/login');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [router]);
 
   // Show loading state while checking authentication
   if (status === 'loading') {
@@ -52,14 +60,11 @@ export default function LandingPage() {
           TECH HUB
         </p>
         
-        {/* Redirect notice */}
-        <div className="mt-8 text-center">
-          <p className="text-white/60 text-sm">
-            Redirecting to admin login...
+        {/* Portfolio description */}
+        <div className="mt-8 text-center max-w-md">
+          <p className="text-white/40 text-sm leading-relaxed">
+            Development & Creative Technologies
           </p>
-          <div className="mt-4 flex justify-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/60"></div>
-          </div>
         </div>
 
         {/* Subtle glow effect */}

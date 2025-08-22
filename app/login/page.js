@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from '@aws-amplify/auth';
 import { useRouter } from 'next/navigation';
 
@@ -10,6 +10,17 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    // ESC key to return to landing page
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        router.push('/');
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [router]);
 
   const AUTHORIZED_EMAIL = 'jd@jeremiahblakely.com';
 
@@ -132,8 +143,8 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center">
-            <p className="text-xs text-gray-500">
-              Need access? Contact system administrator.
+            <p className="text-xs text-gray-500/70">
+              Press ESC to return
             </p>
           </div>
         </form>
