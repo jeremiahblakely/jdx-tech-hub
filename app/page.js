@@ -1,5 +1,6 @@
 'use client';
 
+// Trigger redeploy with correct Cognito User Pool ID: us-east-1_2ZIzhhjUY
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
