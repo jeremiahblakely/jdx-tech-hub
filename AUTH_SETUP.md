@@ -14,8 +14,8 @@ NEXTAUTH_SECRET=your-secure-secret-key-here
 NEXTAUTH_URL=http://localhost:3001
 
 # AWS Cognito Settings
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_2ZIdN9jVY
-NEXT_PUBLIC_COGNITO_CLIENT_ID=7aih7v6094c9vdp3f5jq62b0gc
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_2ZIzhhjUY
+NEXT_PUBLIC_COGNITO_CLIENT_ID=7qi3ollo7i0uj6r07tcuk2r93i
 COGNITO_CLIENT_SECRET=your-cognito-client-secret
 
 # AWS Region
@@ -48,7 +48,7 @@ Protected routes via middleware:
 The authorized user account must be created manually in AWS Cognito Console:
 
 1. Go to AWS Cognito User Pools
-2. Select your user pool (`us-east-1_2ZIdN9jVY`)
+2. Select your user pool (`us-east-1_2ZIzhhjUY`)
 3. Create user with email: `jd@jeremiahblakely.com`
 4. Set temporary password and require password reset on first login
 
