@@ -1,5 +1,4 @@
 import './globals.css'
-import AuthProvider from '../components/AuthProvider'
 import AmplifyProvider from '../components/AmplifyProvider'
 
 export const metadata = {
@@ -12,9 +11,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AmplifyProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          {children}
         </AmplifyProvider>
       </body>
     </html>

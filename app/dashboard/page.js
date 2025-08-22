@@ -1,7 +1,9 @@
-// app/page.js
+// app/dashboard/page.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getCurrentUser, signOut } from 'aws-amplify/auth';
 import Link from 'next/link';
 import { 
   Code, 
@@ -17,7 +19,10 @@ import {
   Zap
 } from 'lucide-react';
 
-export default function Home() {
+export default function Dashboard() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [projects] = useState([
     {
       id: 'jdtv',
@@ -62,6 +67,38 @@ export default function Home() {
       }
     }
   ]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [router]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setIsLoading(false);
+    } catch (error) {
+      console.log('Not authenticated, redirecting to login');
+      router.push('/login');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--gradient-subtle)' }}>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -120,6 +157,14 @@ export default function Home() {
                   Operational
                 </span>
               </div>
+              
+              {/* Sign Out Button */}
+              <button 
+                onClick={handleSignOut}
+                className="premium-button flex items-center space-x-2 px-6 py-3"
+              >
+                <span className="text-xs tracking-[0.1em] uppercase">Sign Out</span>
+              </button>
               
               {/* New Project Button */}
               <button className="premium-button flex items-center space-x-2 px-6 py-3">

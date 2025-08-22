@@ -1,20 +1,30 @@
 'use client';
 
 // Trigger redeploy with correct Cognito User Pool ID: us-east-1_2ZIzhhjUY
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { getCurrentUser } from 'aws-amplify/auth';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // If authenticated, redirect to dashboard
-    if (status === 'authenticated') {
+    checkAuthStatus();
+  }, [router]);
+
+  const checkAuthStatus = async () => {
+    try {
+      await getCurrentUser();
+      setIsAuthenticated(true);
       router.push('/dashboard');
+    } catch (error) {
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
     }
-  }, [status, router]);
+  };
 
   useEffect(() => {
     // Secret keyboard shortcut to access admin login
@@ -31,7 +41,7 @@ export default function LandingPage() {
   }, [router]);
 
   // Show loading state while checking authentication
-  if (status === 'loading') {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
