@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { jdxTechHubBlueprint } from '../../lib/constants/jdx-tech-hub-blueprint.js';
+import { useParams } from 'next/navigation';
+import { jdxTechHubBlueprint } from '../../../../lib/constants/jdx-tech-hub-blueprint.js';
 import { 
   Target,
   Clock,
@@ -37,20 +38,24 @@ import {
   Check
 } from 'lucide-react';
 
-export default function FullyOperationalCommandCenter() {
+export default function ProjectBlueprint() {
+  const params = useParams();
+  const projectId = params.id;
+
   // Core state management
   const [taskStates, setTaskStates] = useState({});
   const [focusTask, setFocusTask] = useState(null);
   const [copiedStates, setCopiedStates] = useState({});
   const [decisionLog, setDecisionLog] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [blueprint, setBlueprint] = useState(null);
   const [credentials, setCredentials] = useState({
     awsRegion: 'us-east-1',
     cognitoPoolId: 'us-east-1_2ZIzhhjUY',
     cognitoClientId: '7qi3ollo7i0uj6r07tcuk2r93i',
     dynamoTable: 'jdx-projects',
-    githubRepo: 'jdxtech/hub',
-    vercelUrl: 'jdxtech-hub.vercel.app'
+    githubRepo: `jdxtech/${projectId}`,
+    vercelUrl: `${projectId}.vercel.app`
   });
   
   // UI state
@@ -61,6 +66,7 @@ export default function FullyOperationalCommandCenter() {
   const [newDecision, setNewDecision] = useState({ decision: '', reason: '', impact: '' });
   const [toasts, setToasts] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Toast notifications
   const showToast = (message, type = 'success') => {
@@ -86,85 +92,132 @@ export default function FullyOperationalCommandCenter() {
     }
   };
 
-  // Auto-save to localStorage
-  const saveToStorage = () => {
-    const state = {
-      taskStates,
-      focusTask,
-      decisionLog,
-      credentials,
-      sessions,
-      timeSpent,
-      lastUpdated: new Date().toISOString()
-    };
-    localStorage.setItem('jdx-command-center', JSON.stringify(state));
-  };
-
-  // Load from localStorage
-  const loadFromStorage = () => {
+  // Save blueprint to database
+  const saveBlueprintToDatabase = async () => {
     try {
-      const saved = localStorage.getItem('jdx-command-center');
-      if (saved) {
-        const state = JSON.parse(saved);
-        setTaskStates(state.taskStates || {});
-        setDecisionLog(state.decisionLog || []);
-        setCredentials(state.credentials || credentials);
-        setSessions(state.sessions || []);
-        setTimeSpent(state.timeSpent || {});
-        showToast('Restored from last session', 'success');
+      const blueprintData = {
+        phases: blueprint?.phases || [],
+        currentFocus: focusTask?.id || null,
+        progress: getStats().completionRate,
+        decisions: decisionLog,
+        credentials,
+        timeSpent,
+        taskStates,
+        sessions: sessions.slice(-10), // Keep last 10 sessions
+        lastUpdated: new Date().toISOString()
+      };
+
+      const response = await fetch(`/api/projects`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: projectId,
+          blueprint: blueprintData
+        })
+      });
+
+      if (response.ok) {
+        showToast('Blueprint saved to database', 'success');
+      } else {
+        showToast('Failed to save blueprint', 'error');
       }
     } catch (err) {
-      console.error('Failed to load from storage:', err);
+      console.error('Failed to save blueprint:', err);
+      showToast('Failed to save blueprint', 'error');
     }
   };
 
-  // Initialize on mount
-  useEffect(() => {
-    loadFromStorage();
-    initializeSession();
-    calculateCurrentFocus();
-    
+  // Load blueprint from database
+  const loadBlueprintFromDatabase = async () => {
+    try {
+      const response = await fetch(`/api/projects?id=${projectId}`);
+      if (response.ok) {
+        const project = await response.json();
+        
+        if (project.blueprint) {
+          const blueprintData = project.blueprint;
+          setTaskStates(blueprintData.taskStates || {});
+          setDecisionLog(blueprintData.decisions || []);
+          setCredentials(prev => ({ ...prev, ...blueprintData.credentials }));
+          setSessions(blueprintData.sessions || []);
+          setTimeSpent(blueprintData.timeSpent || {});
+          
+          // Set blueprint - use saved phases or default template
+          setBlueprint({
+            ...jdxTechHubBlueprint,
+            id: `${projectId}-blueprint`,
+            name: `${project.name} Blueprint`,
+            phases: blueprintData.phases.length > 0 ? blueprintData.phases : jdxTechHubBlueprint.phases
+          });
+          
+          showToast('Blueprint loaded from database', 'success');
+        } else {
+          // Initialize with default template
+          initializeDefaultBlueprint(project);
+        }
+      } else {
+        initializeDefaultBlueprint();
+      }
+    } catch (err) {
+      console.error('Failed to load blueprint:', err);
+      initializeDefaultBlueprint();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize with default template
+  const initializeDefaultBlueprint = (project = null) => {
+    setBlueprint({
+      ...jdxTechHubBlueprint,
+      id: `${projectId}-blueprint`,
+      name: project ? `${project.name} Blueprint` : `${projectId} Blueprint`,
+      phases: jdxTechHubBlueprint.phases
+    });
+
     // Add default decisions if none exist
     if (decisionLog.length === 0) {
       setDecisionLog([
         {
           id: '1',
-          date: '2024-03-15',
-          decision: 'Use DynamoDB over PostgreSQL',
-          reason: 'Serverless scaling, no maintenance overhead, fits AWS ecosystem',
-          impact: 'NoSQL queries only, no complex joins, pay-per-request billing',
-          relatedTask: 'Database Setup'
-        },
-        {
-          id: '2', 
-          date: '2024-03-16',
-          decision: 'Amplify Auth over NextAuth.js',
-          reason: 'Already using AWS services, integrated with Cognito',
-          impact: 'All auth uses Amplify methods (getCurrentUser, signIn, signOut)',
-          relatedTask: 'Authentication System'
-        },
-        {
-          id: '3',
-          date: '2024-03-17',
-          decision: 'Carbon Forge as primary theme system',
-          reason: 'Provides premium look, CSS custom properties for flexibility',
-          impact: 'Use premium-* classes, theme switching via CSS variables',
-          relatedTask: 'Theme System'
+          date: new Date().toISOString().split('T')[0],
+          decision: 'Initialize project blueprint',
+          reason: 'Need structured development approach with progress tracking',
+          impact: 'Will guide development phases and track completion',
+          relatedTask: 'Project Setup'
         }
       ]);
     }
-  }, []);
+  };
 
   // Auto-save when state changes
   useEffect(() => {
-    const timer = setTimeout(saveToStorage, 500);
-    return () => clearTimeout(timer);
-  }, [taskStates, decisionLog, credentials, timeSpent]);
+    if (!isLoading && blueprint) {
+      const timer = setTimeout(saveBlueprintToDatabase, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [taskStates, decisionLog, credentials, timeSpent, isLoading]);
+
+  // Initialize on mount
+  useEffect(() => {
+    loadBlueprintFromDatabase();
+    initializeSession();
+  }, [projectId]);
+
+  // Calculate focus when data changes
+  useEffect(() => {
+    if (blueprint) {
+      calculateCurrentFocus();
+    }
+  }, [taskStates, blueprint]);
 
   // Initialize session tracking
   const initializeSession = () => {
     const newSession = {
       id: Date.now(),
+      projectId,
       startTime: new Date().toISOString(),
       tasksCompleted: [],
       decisionsAdded: [],
@@ -200,11 +253,11 @@ export default function FullyOperationalCommandCenter() {
     }
     
     setTaskStates(newStates);
-    calculateCurrentFocus();
   };
 
   const getTaskById = (taskId) => {
-    return jdxTechHubBlueprint.phases
+    if (!blueprint) return null;
+    return blueprint.phases
       .flatMap(phase => phase.tasks)
       .find(task => task.id === taskId);
   };
@@ -266,7 +319,7 @@ export default function FullyOperationalCommandCenter() {
 
   // Smart next action logic
   const getNextAction = () => {
-    const blueprint = jdxTechHubBlueprint;
+    if (!blueprint) return { task: null, reason: 'Loading...', type: 'loading', priority: 'MEDIUM' };
     
     // Check for critical blockers first
     const criticalTasks = blueprint.phases
@@ -301,7 +354,6 @@ export default function FullyOperationalCommandCenter() {
       .flatMap(p => p.tasks)
       .filter(t => {
         if (isTaskComplete(t.id)) return false;
-        // Check dependencies (simplified)
         return true;
       });
     
@@ -348,7 +400,8 @@ export default function FullyOperationalCommandCenter() {
       id: Date.now().toString(),
       date: new Date().toISOString().split('T')[0],
       ...newDecision,
-      relatedTask: focusTask?.title || 'General'
+      relatedTask: focusTask?.title || 'General',
+      projectId
     };
     
     setDecisionLog(prev => [...prev, decision]);
@@ -370,26 +423,22 @@ export default function FullyOperationalCommandCenter() {
     showToast('Decision deleted', 'success');
   };
 
-  // Credential management
-  const updateCredential = (key, value) => {
-    setCredentials(prev => ({ ...prev, [key]: value }));
-    showToast('Credential updated', 'success');
-  };
-
   // AI Template generation
   const generateAITemplate = (type) => {
-    const lastCompleted = jdxTechHubBlueprint.phases
+    if (!blueprint) return 'Loading blueprint...';
+
+    const lastCompleted = blueprint.phases
       .flatMap(p => p.tasks)
       .filter(t => isTaskComplete(t.id))
       .slice(-1)[0];
     
     const completionPercentage = Math.round(
-      (jdxTechHubBlueprint.phases.filter(p => p.status === 'completed').length / 
-       jdxTechHubBlueprint.phases.length) * 100
+      (blueprint.phases.filter(p => p.status === 'completed').length / 
+       blueprint.phases.length) * 100
     );
     
     const templates = {
-      continue: `🚀 CONTINUING JDX TECH HUB WORK
+      continue: `🚀 CONTINUING ${projectId.toUpperCase()} PROJECT WORK
 
 🔧 TECH STACK:
 - Next.js 14 App Router
@@ -405,11 +454,11 @@ export default function FullyOperationalCommandCenter() {
 
 🎯 SPECIFIC TASK: ${focusTask?.steps?.find(s => !s.done)?.task || 'Review current state'}
 
-CONTEXT: ${focusTask?.why || 'Working on project management dashboard with AWS integration'}
+CONTEXT: ${focusTask?.why || `Working on ${projectId} project development`}
 
 Please help me: [ADD YOUR REQUEST HERE]`,
 
-      debug: `🐛 DEBUG JDX TECH HUB ERROR
+      debug: `🐛 DEBUG ${projectId.toUpperCase()} ERROR
 
 📄 ERROR MESSAGE: [PASTE ERROR HERE]
 
@@ -417,6 +466,7 @@ Please help me: [ADD YOUR REQUEST HERE]`,
 📁 LIKELY FILES: ${focusTask?.checklist?.[0]?.filesModified?.[0]?.path || '/app/[add-file-path]'}
 
 🔧 TECH CONTEXT:
+- Project: ${projectId}
 - Next.js 14 with App Router
 - AWS Amplify (Pool: ${credentials.cognitoPoolId})
 - DynamoDB (Table: ${credentials.dynamoTable})
@@ -428,16 +478,14 @@ Please help me: [ADD YOUR REQUEST HERE]`,
 
 Please help debug this issue and provide a solution.`,
 
-      feature: `🚀 NEW FEATURE REQUEST - JDX TECH HUB
+      feature: `🚀 NEW FEATURE REQUEST - ${projectId.toUpperCase()}
 
 🎯 FEATURE: [DESCRIBE FEATURE HERE]
 
 📋 CURRENT STATUS:
-- Foundation: ✅ Complete (${jdxTechHubBlueprint.phases.find(p => p.id === 'foundation')?.status})
-- Authentication: ✅ Complete (${jdxTechHubBlueprint.phases.find(p => p.id === 'authentication')?.status})
-- Theme System: ✅ Complete (${jdxTechHubBlueprint.phases.find(p => p.id === 'theme-system')?.status})
-- Blueprint System: 🚧 In Progress (${jdxTechHubBlueprint.phases.find(p => p.id === 'blueprint-system')?.status})
-- Production Ready: ⬜ Not Started (${jdxTechHubBlueprint.phases.find(p => p.id === 'production-ready')?.status})
+${blueprint.phases.map(phase => 
+  `- ${phase.name}: ${phase.status === 'completed' ? '✅' : phase.status === 'in-progress' ? '🚧' : '⬜'} ${phase.status}`
+).join('\n')}
 
 🔧 AVAILABLE TOOLS:
 - DynamoDB operations (table: ${credentials.dynamoTable})
@@ -452,12 +500,13 @@ Please help debug this issue and provide a solution.`,
 
 Please help me implement this feature following the existing patterns and architecture.`,
 
-      question: `❓ JDX TECH HUB QUESTION
+      question: `❓ ${projectId.toUpperCase()} PROJECT QUESTION
 
 🤔 MY QUESTION: [ADD YOUR QUESTION HERE]
 
 📊 PROJECT CONTEXT:
-- Phase: ${jdxTechHubBlueprint.phases.find(p => p.status === 'in-progress')?.name || 'Development'}
+- Project: ${projectId}
+- Phase: ${blueprint.phases.find(p => p.status === 'in-progress')?.name || 'Development'}
 - Current Task: ${focusTask?.title || 'Various improvements'}
 - Stack: Next.js 14 + AWS (Amplify, DynamoDB)
 - Theme: Carbon Forge custom properties
@@ -468,7 +517,7 @@ Please help me implement this feature following the existing patterns and archit
 - DynamoDB Table: ${credentials.dynamoTable}
 - Cognito Pool: ${credentials.cognitoPoolId}
 
-💡 WHAT I'M TRYING TO ACHIEVE: ${focusTask?.why || 'Building features effectively'}
+💡 WHAT I'M TRYING TO ACHIEVE: ${focusTask?.why || `Building ${projectId} project effectively`}
 ⏱️ SESSION TIME: ${currentSession ? formatTime(currentSession.timeTracked) : '0s'}
 
 Please provide guidance on the best approach.`
@@ -477,50 +526,11 @@ Please provide guidance on the best approach.`
     return templates[type] || templates.continue;
   };
 
-  // Export/Import functionality
-  const exportData = () => {
-    const data = {
-      taskStates,
-      decisionLog,
-      credentials,
-      sessions: sessions.slice(-10), // Last 10 sessions
-      timeSpent,
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `jdx-command-center-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    showToast('Data exported successfully', 'success');
-  };
-
-  const importData = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        setTaskStates(data.taskStates || {});
-        setDecisionLog(data.decisionLog || []);
-        setCredentials(data.credentials || credentials);
-        setSessions(data.sessions || []);
-        setTimeSpent(data.timeSpent || {});
-        showToast('Data imported successfully!', 'success');
-        calculateCurrentFocus();
-      } catch (err) {
-        showToast('Failed to import data', 'error');
-        console.error('Import error:', err);
-      }
-    };
-    reader.readAsText(file);
-  };
-
   // Calculate statistics
   const getStats = () => {
-    const totalTasks = jdxTechHubBlueprint.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+    if (!blueprint) return { totalTasks: 0, completedTasks: 0, completionRate: 0, totalTime: 0, sessionsToday: 0, averageTaskTime: 0 };
+
+    const totalTasks = blueprint.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
     const completedTasks = Object.values(taskStates).filter(state => state.completed).length;
     const totalTime = Object.values(timeSpent).reduce((sum, time) => sum + time, 0);
     const sessionsToday = sessions.filter(s => 
@@ -536,6 +546,14 @@ Please provide guidance on the best approach.`
       averageTaskTime: completedTasks > 0 ? Math.round(totalTime / completedTasks) : 0
     };
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--gradient-subtle)' }}>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   const stats = getStats();
 
@@ -556,6 +574,33 @@ Please provide guidance on the best approach.`
               {toast.message}
             </div>
           ))}
+        </div>
+        
+        {/* Project Header */}
+        <div className="premium-card p-6 border-l-4 border-purple-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div 
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ 
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                }}
+              >
+                <Code className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="premium-heading text-2xl">{blueprint?.name || `${projectId} Blueprint`}</h1>
+                <p className="premium-body opacity-70">Project development blueprint and progress tracking</p>
+              </div>
+            </div>
+            <button 
+              onClick={saveBlueprintToDatabase}
+              className="premium-button primary px-4 py-2 text-sm flex items-center space-x-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>Save Blueprint</span>
+            </button>
+          </div>
         </div>
         
         {/* Session & Stats Header */}
@@ -583,24 +628,6 @@ Please provide guidance on the best approach.`
             </div>
             
             <div className="flex items-center space-x-3">
-              <input
-                type="file"
-                accept=".json"
-                onChange={(e) => e.target.files[0] && importData(e.target.files[0])}
-                className="hidden"
-                id="import-file"
-              />
-              <label htmlFor="import-file" className="premium-button secondary px-4 py-2 text-sm flex items-center space-x-2 cursor-pointer">
-                <Upload className="w-4 h-4" />
-                <span>Import</span>
-              </label>
-              <button 
-                onClick={exportData}
-                className="premium-button secondary px-4 py-2 text-sm flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export</span>
-              </button>
               <button 
                 onClick={() => copyToClipboard(generateAITemplate('continue'), 'session-context')}
                 className={`premium-button ${copiedStates['session-context'] ? 'primary' : 'secondary'} px-4 py-2 text-sm flex items-center space-x-2`}
@@ -612,7 +639,7 @@ Please provide guidance on the best approach.`
           </div>
         </div>
         
-        {/* FOCUS MODE - Fully Interactive */}
+        {/* FOCUS MODE */}
         {focusTask && (
           <div className="premium-card p-8 border-l-4 border-orange-500">
             <div className="flex items-start justify-between mb-6">
@@ -686,7 +713,6 @@ Please provide guidance on the best approach.`
                     type="checkbox"
                     checked={step.done}
                     onChange={() => {
-                      const stepKey = `${focusTask.title}-step-${idx}`;
                       toggleTask(focusTask.id, idx);
                       if (!step.done) {
                         showToast(`Step completed: ${step.task.substring(0, 30)}...`, 'success');
@@ -718,7 +744,7 @@ Please provide guidance on the best approach.`
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* AI Context Vault - Editable */}
+          {/* AI Context Vault */}
           <div className="premium-card p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
@@ -785,7 +811,7 @@ Please provide guidance on the best approach.`
             </div>
           </div>
 
-          {/* Enhanced AI Templates */}
+          {/* AI Templates */}
           <div className="premium-card p-6">
             <div className="flex items-center space-x-3 mb-4">
               <Code className="w-6 h-6" style={{ color: 'var(--theme-accent-primary)' }} />
@@ -920,88 +946,90 @@ Please provide guidance on the best approach.`
         </div>
 
         {/* Interactive Progress Overview */}
-        <div className="premium-card p-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <TrendingUp className="w-6 h-6" style={{ color: '#22c55e' }} />
-            <h2 className="premium-heading text-xl">Interactive Progress</h2>
-            <button 
-              onClick={calculateCurrentFocus}
-              className="premium-button secondary px-3 py-1 text-sm flex items-center space-x-1"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Refresh</span>
-            </button>
-          </div>
-          
-          <div className="space-y-6">
-            {jdxTechHubBlueprint.phases.map(phase => {
-              const completed = phase.tasks.filter(t => isTaskComplete(t.id)).length;
-              const total = phase.tasks.length;
-              const progress = Math.round((completed / total) * 100);
-              
-              return (
-                <div key={phase.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="premium-heading text-lg">{phase.name}</h3>
-                    <span className="premium-body">{completed}/{total} ({progress}%)</span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full h-3 rounded-full mb-4" style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
-                    <div 
-                      className="h-3 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${progress}%`,
-                        backgroundColor: progress === 100 ? '#22c55e' : 'var(--theme-accent-primary)'
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Interactive Task List */}
-                  <div className="space-y-2">
-                    {phase.tasks.map(task => (
-                      <div key={task.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-opacity-80 transition-colors"
-                           style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={isTaskComplete(task.id)}
-                            onChange={() => {
-                              // Toggle task completion
-                              setTaskStates(prev => ({
-                                ...prev,
-                                [task.id]: {
-                                  ...prev[task.id],
-                                  completed: !isTaskComplete(task.id)
-                                }
-                              }));
-                              calculateCurrentFocus();
-                            }}
-                            className="w-4 h-4 rounded cursor-pointer"
-                          />
-                          <span className={`premium-body ${isTaskComplete(task.id) ? 'line-through opacity-60' : ''}`}>
-                            {task.title}
-                          </span>
-                          <span className="text-xs opacity-60">
-                            ({formatTime(timeSpent[task.id] || 0)})
-                          </span>
+        {blueprint && (
+          <div className="premium-card p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <TrendingUp className="w-6 h-6" style={{ color: '#22c55e' }} />
+              <h2 className="premium-heading text-xl">Interactive Progress</h2>
+              <button 
+                onClick={calculateCurrentFocus}
+                className="premium-button secondary px-3 py-1 text-sm flex items-center space-x-1"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Refresh</span>
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              {blueprint.phases.map(phase => {
+                const completed = phase.tasks.filter(t => isTaskComplete(t.id)).length;
+                const total = phase.tasks.length;
+                const progress = Math.round((completed / total) * 100);
+                
+                return (
+                  <div key={phase.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="premium-heading text-lg">{phase.name}</h3>
+                      <span className="premium-body">{completed}/{total} ({progress}%)</span>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full h-3 rounded-full mb-4" style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
+                      <div 
+                        className="h-3 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${progress}%`,
+                          backgroundColor: progress === 100 ? '#22c55e' : 'var(--theme-accent-primary)'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Interactive Task List */}
+                    <div className="space-y-2">
+                      {phase.tasks.map(task => (
+                        <div key={task.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-opacity-80 transition-colors"
+                             style={{ backgroundColor: 'var(--theme-background-elevated)' }}>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={isTaskComplete(task.id)}
+                              onChange={() => {
+                                // Toggle task completion
+                                setTaskStates(prev => ({
+                                  ...prev,
+                                  [task.id]: {
+                                    ...prev[task.id],
+                                    completed: !isTaskComplete(task.id)
+                                  }
+                                }));
+                                calculateCurrentFocus();
+                              }}
+                              className="w-4 h-4 rounded cursor-pointer"
+                            />
+                            <span className={`premium-body ${isTaskComplete(task.id) ? 'line-through opacity-60' : ''}`}>
+                              {task.title}
+                            </span>
+                            <span className="text-xs opacity-60">
+                              ({formatTime(timeSpent[task.id] || 0)})
+                            </span>
+                          </div>
+                          {!isTaskComplete(task.id) && (
+                            <button 
+                              onClick={() => startTimer(task.id)}
+                              className="premium-button secondary px-3 py-1 text-xs"
+                            >
+                              Work On This
+                            </button>
+                          )}
                         </div>
-                        {!isTaskComplete(task.id) && (
-                          <button 
-                            onClick={() => startTimer(task.id)}
-                            className="premium-button secondary px-3 py-1 text-xs"
-                          >
-                            Work On This
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

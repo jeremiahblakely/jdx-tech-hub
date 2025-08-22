@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import { ArrowLeft, Home, Code, Key, Cloud, FileText, Github } from 'lucide-react';
+import { ArrowLeft, Home, Code, Key, Cloud, FileText, Github, Map } from 'lucide-react';
 
 export default function ProjectLayout({ children }) {
   const pathname = usePathname();
@@ -21,6 +21,7 @@ export default function ProjectLayout({ children }) {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home, href: `/projects/${projectId}` },
+    { id: 'blueprint', label: 'Blueprint', icon: Map, href: `/projects/${projectId}/blueprint` },
     { id: 'credentials', label: 'Credentials', icon: Key, href: `/projects/${projectId}/credentials` },
     { id: 'github', label: 'GitHub', icon: Github, href: `/projects/${projectId}/github` },
     { id: 'aws', label: 'AWS Resources', icon: Cloud, href: `/projects/${projectId}/aws` },

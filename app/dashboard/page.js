@@ -17,13 +17,23 @@ import {
   Activity,
   Calendar,
   Users,
-  Zap
+  Zap,
+  X,
+  Save
 } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProject, setNewProject] = useState({
+    id: '',
+    name: '',
+    description: '',
+    techStack: '',
+    template: 'web-app'
+  });
   const [projects] = useState([
     {
       id: 'jdtv',
@@ -90,6 +100,66 @@ export default function Dashboard() {
       router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const createProject = async () => {
+    if (!newProject.name.trim() || !newProject.id.trim()) {
+      alert('Please fill in project name and ID');
+      return;
+    }
+
+    try {
+      const projectData = {
+        id: newProject.id.toLowerCase().replace(/\s+/g, '-'),
+        name: newProject.name,
+        description: newProject.description,
+        status: 'development',
+        techStack: newProject.techStack.split(',').map(t => t.trim()).filter(Boolean),
+        blueprint: {
+          template: newProject.template,
+          phases: [],
+          currentFocus: null,
+          progress: 0,
+          decisions: [{
+            id: '1',
+            date: new Date().toISOString().split('T')[0],
+            decision: 'Initialize project blueprint',
+            reason: 'Need structured development approach with progress tracking',
+            impact: 'Will guide development phases and track completion',
+            relatedTask: 'Project Setup'
+          }],
+          credentials: {
+            awsRegion: 'us-east-1',
+            githubRepo: `jdxtech/${newProject.id}`,
+            vercelUrl: `${newProject.id}.vercel.app`
+          },
+          timeSpent: {},
+          taskStates: {},
+          sessions: [],
+          lastUpdated: new Date().toISOString()
+        }
+      };
+
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(projectData)
+      });
+
+      if (response.ok) {
+        setShowCreateProject(false);
+        setNewProject({ id: '', name: '', description: '', techStack: '', template: 'web-app' });
+        // Navigate to the new project's blueprint
+        router.push(`/projects/${projectData.id}/blueprint`);
+      } else {
+        alert('Failed to create project');
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Error creating project');
     }
   };
 
@@ -170,7 +240,10 @@ export default function Dashboard() {
               </button>
               
               {/* New Project Button */}
-              <button className="premium-button flex items-center space-x-2 px-6 py-3">
+              <button 
+                onClick={() => setShowCreateProject(true)}
+                className="premium-button flex items-center space-x-2 px-6 py-3"
+              >
                 <Plus className="w-4 h-4" />
                 <span className="text-xs tracking-[0.1em] uppercase">New Project</span>
               </button>
@@ -345,6 +418,7 @@ export default function Dashboard() {
 
           {/* Add New Project Card */}
           <button 
+            onClick={() => setShowCreateProject(true)}
             className="premium-card p-8 border-2 border-dashed hover:-translate-y-1 transition-all duration-300 flex flex-col items-center justify-center space-y-4 group"
             style={{ borderColor: 'rgba(142, 142, 147, 0.2)' }}
           >
@@ -441,6 +515,130 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Create Project Modal */}
+      {showCreateProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="premium-card p-8 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="premium-heading text-xl">Create New Project</h2>
+              <button 
+                onClick={() => setShowCreateProject(false)}
+                className="premium-button secondary px-2 py-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="premium-body text-sm block mb-2">Project ID (URL-safe)</label>
+                <input
+                  type="text"
+                  value={newProject.id}
+                  onChange={(e) => setNewProject({...newProject, id: e.target.value})}
+                  placeholder="my-awesome-project"
+                  className="w-full p-3 rounded"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    borderColor: 'var(--theme-border-secondary)',
+                    color: 'var(--theme-text-primary)',
+                    border: '1px solid var(--theme-border-secondary)'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="premium-body text-sm block mb-2">Project Name</label>
+                <input
+                  type="text"
+                  value={newProject.name}
+                  onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                  placeholder="My Awesome Project"
+                  className="w-full p-3 rounded"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    borderColor: 'var(--theme-border-secondary)',
+                    color: 'var(--theme-text-primary)',
+                    border: '1px solid var(--theme-border-secondary)'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="premium-body text-sm block mb-2">Description</label>
+                <textarea
+                  value={newProject.description}
+                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  placeholder="Brief description of the project"
+                  rows="3"
+                  className="w-full p-3 rounded"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    borderColor: 'var(--theme-border-secondary)',
+                    color: 'var(--theme-text-primary)',
+                    border: '1px solid var(--theme-border-secondary)'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="premium-body text-sm block mb-2">Tech Stack (comma-separated)</label>
+                <input
+                  type="text"
+                  value={newProject.techStack}
+                  onChange={(e) => setNewProject({...newProject, techStack: e.target.value})}
+                  placeholder="React, Node.js, MongoDB"
+                  className="w-full p-3 rounded"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    borderColor: 'var(--theme-border-secondary)',
+                    color: 'var(--theme-text-primary)',
+                    border: '1px solid var(--theme-border-secondary)'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="premium-body text-sm block mb-2">Blueprint Template</label>
+                <select
+                  value={newProject.template}
+                  onChange={(e) => setNewProject({...newProject, template: e.target.value})}
+                  className="w-full p-3 rounded"
+                  style={{ 
+                    backgroundColor: 'var(--theme-background-elevated)',
+                    borderColor: 'var(--theme-border-secondary)',
+                    color: 'var(--theme-text-primary)',
+                    border: '1px solid var(--theme-border-secondary)'
+                  }}
+                >
+                  <option value="web-app">Web Application</option>
+                  <option value="mobile-app">Mobile App</option>
+                  <option value="api">API Service</option>
+                  <option value="desktop-app">Desktop Application</option>
+                  <option value="library">Library/Package</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3 mt-6">
+              <button 
+                onClick={createProject}
+                className="premium-button primary px-6 py-3 flex items-center space-x-2"
+              >
+                <Save className="w-4 h-4" />
+                <span>Create Project</span>
+              </button>
+              <button 
+                onClick={() => setShowCreateProject(false)}
+                className="premium-button secondary px-6 py-3"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
