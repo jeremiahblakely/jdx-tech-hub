@@ -370,7 +370,7 @@ export default function Dashboard() {
             <p className="premium-body text-sm opacity-70">System management and integration tools</p>
           </div>
           
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-5 gap-6">
             
             {/* GitHub Sync */}
             <button className="premium-card p-6 text-left group transition-all duration-300 hover:-translate-y-1">
@@ -410,6 +410,21 @@ export default function Dashboard() {
                 Review system performance data
               </p>
             </button>
+            
+            {/* Blueprint Test */}
+            <Link href="/test-blueprint">
+              <button className="premium-card p-6 text-left group transition-all duration-300 hover:-translate-y-1">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(255, 69, 0, 0.1)' }}>
+                  <Activity className="w-6 h-6" style={{ color: 'var(--theme-accent-primary)' }} />
+                </div>
+                <h4 className="premium-heading text-sm mb-2 group-hover:opacity-80 transition-opacity">
+                  Blueprint System Test
+                </h4>
+                <p className="premium-body text-xs opacity-60 leading-relaxed">
+                  Test the new Blueprint & Progress system
+                </p>
+              </button>
+            </Link>
             
             {/* Team Management */}
             <button className="premium-card p-6 text-left group transition-all duration-300 hover:-translate-y-1">
